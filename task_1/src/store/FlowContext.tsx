@@ -1,16 +1,19 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Node, Edge } from 'reactflow';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { createContext, useContext, useState, ReactNode } from "react";
+import { Node, Edge } from "reactflow";
+
+interface Field {
+  name: string;
+  type: string;
+  defaultValue?: string;
+  validation?: string;
+  mapping?: string;
+}
 
 interface Model {
   id: string;
   name: string;
-  fields: {
-    name: string;
-    type: string;
-    defaultValue: string;
-    validation: string;
-    mapping?: string;
-  }[];
+  fields: Field[];
 }
 
 interface Role {
@@ -60,21 +63,27 @@ interface FlowState {
   settings: Settings;
   defaultTablesShown: boolean;
   routeStates: { [routeId: string]: { nodes: Node[]; edges: Edge[] } };
+
   setNodes: (nodes: Node[] | ((prev: Node[]) => Node[])) => void;
   setEdges: (edges: Edge[] | ((prev: Edge[]) => Edge[])) => void;
   setSelectedNode: (node: Node | null) => void;
-  updateNodeData: (nodeId: string, newData: any) => void;
+
+  updateNodeData: (nodeId: string, newData: Record<string, any>) => void;
+
   addModel: (model: Model) => void;
   updateModel: (model: Model) => void;
+
   addRole: (role: Role) => void;
   updateRole: (role: Role) => void;
   deleteRole: (roleId: string) => void;
+
   addRoute: (route: Route) => void;
   updateRoute: (route: Route) => void;
   deleteRoute: (routeId: string) => void;
+
   updateSettings: (settings: Settings) => void;
   setDefaultTablesShown: (shown: boolean) => void;
-  updateNode: (nodeId: string, newData: any) => void;
+
   saveRouteState: (routeId: string, nodes: Node[], edges: Edge[]) => void;
   loadRouteState: (routeId: string) => { nodes: Node[]; edges: Edge[] } | null;
 }
@@ -102,7 +111,7 @@ export const FlowProvider = ({ children }: { children: ReactNode }) => {
   const [defaultTablesShown, setDefaultTablesShown] = useState<boolean>(false);
   const [routeStates, setRouteStates] = useState<{ [routeId: string]: { nodes: Node[]; edges: Edge[] } }>({});
 
-  const updateNodeData = (nodeId: string, newData: any) => {
+  const updateNodeData = (nodeId: string, newData: Record<string, any>) => {
     setNodes((prevNodes) =>
       prevNodes.map((node) =>
         node.id === nodeId ? { ...node, data: { ...node.data, ...newData } } : node
@@ -112,49 +121,42 @@ export const FlowProvider = ({ children }: { children: ReactNode }) => {
 
   const addModel = (model: Model) => setModels((prev) => [...prev, model]);
   const updateModel = (model: Model) => setModels((prev) => prev.map((m) => (m.id === model.id ? model : m)));
+
   const addRole = (role: Role) => setRoles((prev) => [...prev, role]);
   const updateRole = (role: Role) => setRoles((prev) => prev.map((r) => (r.id === role.id ? role : r)));
   const deleteRole = (roleId: string) => setRoles((prev) => prev.filter((r) => r.id !== roleId));
+
   const addRoute = (route: Route) => setRoutes((prev) => [...prev, route]);
   const updateRoute = (route: Route) => {
     setRoutes((prev) => prev.map((r) => (r.id === route.id ? route : r)));
-    // Also save the flow data to route states if it exists
     if (route.flowData) {
-      setRouteStates(prevStates => ({
+      setRouteStates((prevStates) => ({
         ...prevStates,
         [route.id]: {
           nodes: [...route.flowData.nodes],
-          edges: [...route.flowData.edges]
-        }
+          edges: [...route.flowData.edges],
+        },
       }));
     }
   };
 
   const deleteRoute = (routeId: string) => {
     setRoutes((prev) => prev.filter((r) => r.id !== routeId));
-    // Also remove from route states
-    setRouteStates(prev => {
+    setRouteStates((prev) => {
       const newStates = { ...prev };
       delete newStates[routeId];
       return newStates;
     });
   };
 
-  const updateNode = (nodeId: string, newData: any) => {
-    console.log("Updating node in store:", nodeId, newData);
-    updateNodeData(nodeId, newData);
-  };
-
   const saveRouteState = (routeId: string, nodes: Node[], edges: Edge[]) => {
-    setRouteStates(prev => ({
+    setRouteStates((prev) => ({
       ...prev,
-      [routeId]: { nodes: [...nodes], edges: [...edges] }
+      [routeId]: { nodes: [...nodes], edges: [...edges] },
     }));
   };
 
-  const loadRouteState = (routeId: string) => {
-    return routeStates[routeId] || null;
-  };
+  const loadRouteState = (routeId: string) => routeStates[routeId] || null;
 
   return (
     <FlowContext.Provider
@@ -181,7 +183,6 @@ export const FlowProvider = ({ children }: { children: ReactNode }) => {
         deleteRoute,
         updateSettings: setSettings,
         setDefaultTablesShown,
-        updateNode,
         routeStates,
         saveRouteState,
         loadRouteState,
