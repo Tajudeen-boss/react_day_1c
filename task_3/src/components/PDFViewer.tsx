@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Document, Page, pdfjs, PDFPageProxy } from 'react-pdf';
+import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
 
@@ -12,6 +12,7 @@ interface PDFViewerProps {
   pageNumber: number;
   onPageChange?: (pageNumber: number) => void;
   scale?: number;
+  totalPages?: number;
 }
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({
@@ -21,14 +22,22 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   pageNumber,
   onPageChange,
   scale = 1.5,
+  totalPages = 1,
 }) => {
+  const [numPages, setNumPages] = useState(totalPages);
+
   const handlePageChange = (direction: 'prev' | 'next') => {
-    if (onPageChange) {
-      onPageChange(direction === 'next' ? pageNumber + 1 : pageNumber - 1);
+    if (!onPageChange) return;
+
+    const newPage = direction === 'next' ? pageNumber + 1 : pageNumber - 1;
+
+    // Ensure we don't go beyond valid page range
+    if (newPage >= 1 && newPage <= numPages) {
+      onPageChange(newPage);
     }
   };
 
-  const handlePageRenderSuccess = useCallback((page: PDFPageProxy) => {
+  const handlePageRenderSuccess = useCallback((page: any) => {
     const viewport = page.getViewport({ scale });
     onSize?.({ width: viewport.width, height: viewport.height });
   }, [onSize, scale]);
@@ -37,7 +46,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     <div className="pdf-viewer relative">
       <Document
         file={file}
-        onLoadSuccess={({ numPages }) => onLoadSuccess?.(numPages)}
+        onLoadSuccess={({ numPages }) => {
+          setNumPages(numPages);
+          onLoadSuccess?.(numPages);
+        }}
         className="max-w-full"
       >
         <Page
@@ -54,14 +66,15 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         <button
           onClick={() => handlePageChange('prev')}
           disabled={pageNumber <= 1}
-          className="text-gray-600 hover:text-gray-900 disabled:opacity-50"
+          className="text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Previous
         </button>
-        <span className="text-sm text-gray-600">Page {pageNumber}</span>
+        <span className="text-sm text-gray-600">Page {pageNumber} of {numPages}</span>
         <button
           onClick={() => handlePageChange('next')}
-          className="text-gray-600 hover:text-gray-900"
+          disabled={pageNumber >= numPages}
+          className="text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Next
         </button>

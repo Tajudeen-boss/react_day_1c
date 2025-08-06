@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Save, GripHorizontal } from 'lucide-react';
+import { Save, GripHorizontal, Trash2 } from 'lucide-react';
 import { useDocumentStore } from '../store/documentStore';
 import { ProgressBar } from '../components/ProgressBar';
 import { PDFViewer } from '../components/PDFViewer';
@@ -17,13 +17,14 @@ const FIELD_DEFAULT_SIZES = {
 
 export const EditorPage: React.FC = () => {
   const navigate = useNavigate();
-  const { currentDocument, addField } = useDocumentStore();
+  const { currentDocument, addField, updateField, removeField } = useDocumentStore();
   const [selectedField, setSelectedField] = useState<DocumentField | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfWrapperRef = useRef<HTMLDivElement>(null);
   const [pdfSize, setPdfSize] = useState({ width: 0, height: 0 });
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -62,13 +63,42 @@ export const EditorPage: React.FC = () => {
     console.log('Adding field:', newField);
     addField(currentDocument.id, newField);
     setSelectedField(newField);
+    setIsDragOver(false);
   };
-
-
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    setIsDragOver(true);
   };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleFieldClick = (field: DocumentField) => {
+    setSelectedField(field);
+  };
+
+  const handleDeleteField = (fieldId: string) => {
+    if (currentDocument) {
+      removeField(currentDocument.id, fieldId);
+      setSelectedField(null);
+    }
+  };
+
+  // Add keyboard support for deleting selected fields
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedField) {
+        e.preventDefault();
+        handleDeleteField(selectedField.id);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedField]);
 
   const handleSave = () => {
     navigate('/summary');
@@ -90,32 +120,67 @@ export const EditorPage: React.FC = () => {
 
         <div className="flex-1 p-4">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-semibold">Document Editor</h2>
-            <button
-              onClick={handleSave}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Save className="w-4 h-4 mr-2" />
-              Save
-            </button>
+            <div>
+              <h2 className="text-2xl font-semibold">Document Editor</h2>
+              {selectedField && (
+                <div className="flex items-center mt-2 text-sm text-gray-600">
+                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-md mr-2">
+                    {selectedField.type} field selected
+                  </span>
+                  <span className="text-gray-500">Press Delete or Backspace to remove</span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedField && (
+                <button
+                  onClick={() => handleDeleteField(selectedField.id)}
+                  className="flex items-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Delete Field
+                </button>
+              )}
+              <button
+                onClick={handleSave}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Save
+              </button>
+            </div>
           </div>
 
           <div
             ref={containerRef}
-            className="bg-gray-100 rounded-lg p-4 flex justify-center relative overflow-auto min-h-[600px]"
+            className={`bg-gray-100 rounded-lg p-4 flex justify-center relative overflow-auto min-h-[600px] transition-colors ${
+              isDragOver ? 'bg-blue-50 border-2 border-dashed border-blue-300' : ''
+            }`}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
           >
             <div className="relative" ref={pdfWrapperRef}>
               {currentDocument.file && (
                 <PDFViewer
                   file={currentDocument.file}
                   pageNumber={currentPage}
+                  totalPages={totalPages}
                   onPageChange={setCurrentPage}
                   onLoadSuccess={setTotalPages}
                   onSize={setPdfSize}
                 />
               )}
+
+              {isDragOver && (
+                <div className="absolute inset-0 flex items-center justify-center bg-blue-100/50 border-2 border-dashed border-blue-400 rounded-lg pointer-events-none">
+                  <div className="text-blue-600 text-center">
+                    <p className="text-lg font-semibold">Drop field here</p>
+                    <p className="text-sm">Position the field where you want it on the document</p>
+                  </div>
+                </div>
+              )}
+
 
               {currentDocument.fields
                 .filter((field) => field.page === currentPage)
@@ -129,11 +194,33 @@ export const EditorPage: React.FC = () => {
                       width: `${field.size.width}px`,
                       height: `${field.size.height}px`,
                     }}
-                    className="border-2 border-blue-500 bg-white/80 rounded-md shadow-sm overflow-hidden"
+                    className={`border-2 rounded-md shadow-sm overflow-hidden cursor-pointer transition-colors ${
+                      selectedField?.id === field.id
+                        ? 'border-red-500 bg-red-50/80'
+                        : 'border-blue-500 bg-white/80 hover:bg-blue-50/80'
+                    }`}
+                    onClick={() => handleFieldClick(field)}
                   >
-                    <div className="text-xs bg-blue-500 text-white px-2 py-1 flex items-center justify-between">
+                    <div className={`text-xs px-2 py-1 flex items-center justify-between ${
+                      selectedField?.id === field.id
+                        ? 'bg-red-500 text-white'
+                        : 'bg-blue-500 text-white'
+                    }`}>
                       <span className="capitalize">{field.type}</span>
-                      <GripHorizontal className="w-3 h-3 cursor-move" />
+                      <div className="flex items-center gap-1">
+                        {selectedField?.id === field.id && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteField(field.id);
+                            }}
+                            className="text-white hover:text-red-200 text-xs"
+                          >
+                            ×
+                          </button>
+                        )}
+                        <GripHorizontal className="w-3 h-3 cursor-move" />
+                      </div>
                     </div>
 
                     <div className="p-1">

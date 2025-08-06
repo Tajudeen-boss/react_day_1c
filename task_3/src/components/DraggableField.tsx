@@ -21,16 +21,17 @@ export const DraggableField: React.FC<DraggableFieldProps> = ({
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
     e.dataTransfer.setData('fieldType', type);
+    e.dataTransfer.effectAllowed = 'copy';
   };
 
   return (
     <div
       draggable
       onDragStart={handleDragStart}
-      className="flex items-center p-3 mb-2 bg-white rounded-lg shadow-sm cursor-move hover:bg-gray-50 transition-colors"
+      className="flex items-center p-3 mb-2 bg-white rounded-lg shadow-sm cursor-move hover:bg-gray-50 hover:shadow-md transition-all duration-200 select-none"
     >
       <Icon className="w-5 h-5 mr-2 text-blue-600" />
-      <span className="capitalize">{type}</span>
+      <span className="capitalize font-medium">{type}</span>
     </div>
   );
 };

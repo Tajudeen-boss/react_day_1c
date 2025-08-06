@@ -58,6 +58,9 @@ export const useDocumentStore = create<DocumentStore>((set) => ({
           ? { ...d, fields: [...d.fields, field] }
           : d
       ),
+      currentDocument: state.currentDocument?.id === documentId
+        ? { ...state.currentDocument, fields: [...state.currentDocument.fields, field] }
+        : state.currentDocument
     })),
   updateField: (documentId, field) =>
     set((state) => ({
@@ -71,6 +74,14 @@ export const useDocumentStore = create<DocumentStore>((set) => ({
             }
           : d
       ),
+      currentDocument: state.currentDocument?.id === documentId
+        ? {
+            ...state.currentDocument,
+            fields: state.currentDocument.fields.map((f) =>
+              f.id === field.id ? field : f
+            ),
+          }
+        : state.currentDocument
     })),
   removeField: (documentId, fieldId) =>
     set((state) => ({
@@ -82,5 +93,11 @@ export const useDocumentStore = create<DocumentStore>((set) => ({
             }
           : d
       ),
+      currentDocument: state.currentDocument?.id === documentId
+        ? {
+            ...state.currentDocument,
+            fields: state.currentDocument.fields.filter((f) => f.id !== fieldId),
+          }
+        : state.currentDocument
     })),
 }));
